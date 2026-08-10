@@ -1,0 +1,166 @@
+const output = document.getElementById("output");
+document.querySelector("form").addEventListener("submit", onSubmit);
+
+function getDays(dateStr) {
+  const date = new Date(dateStr);
+  const diff = Date.now() - date.getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+function copyToClipboard(el) {
+  const clipboardItem = new ClipboardItem({
+    "text/plain": new Blob([el.textContent], { type: "text/plain" }),
+    "text/html": new Blob([el.innerHTML], { type: "text/html" }),
+  });
+  navigator.clipboard.write([clipboardItem]);
+}
+
+function formatPRList(name, list) {
+  if (list.length === 0) return "";
+  return `
+<br>
+<p><strong>${name}</strong> (${list.length})</p>
+<ul>
+${
+    list.map((pr) =>
+      `<li><a href="${pr.url}">${pr.name}</a> · ${pr.daysOpen}d</li>`
+    ).join("")
+  }
+</ul>
+  `;
+}
+
+async function onSubmit(e) {
+  e.preventDefault();
+  output.innerHTML = "";
+  const formData = new FormData(e.target, e.submitter);
+
+  const GITHUB_TOKEN = formData.get("token");
+  const owner = formData.get("owner");
+  const repo = formData.get("repo");
+
+  // https://docs.github.com/en/graphql/reference/repos#object-repository
+  const query = `
+query {
+  repository(owner: "${owner}", name: "${repo}") {
+    pullRequests(first: 100, states:OPEN) {
+      edges {
+        node {
+          files(first:40) {
+            edges {
+              node {
+                additions
+                deletions
+              }
+            }
+          }
+          isDraft
+          permalink
+          publishedAt
+          reviewDecision
+          reviews(first:5) {
+            edges {
+              node {
+                state
+              }
+            }
+          }
+          title
+          updatedAt
+        }
+      }
+    }
+  }
+}
+`;
+
+  output.innerHTML += "<p>Fetching pull requests from Github...</p>";
+  const res = await fetch("https://api.github.com/graphql", {
+    method: "post",
+    headers: { Authorization: `Bearer ${GITHUB_TOKEN}` },
+    body: JSON.stringify({ query }),
+  });
+  const body = await res.json();
+
+  if (!res.ok) {
+    output.innerHTML += `<p style="color:red">${JSON.stringify(body)}</p>`;
+    return;
+  }
+
+  if (body.errors) {
+    output.innerHTML += `<p style="color:red">${
+      JSON.stringify(body.errors)
+    }</p>`;
+    return;
+  }
+
+  output.innerHTML += "<p>Formatting response...</p>";
+  const pullRequests = body.data.repository.pullRequests.edges.flatMap((
+    { node },
+  ) =>
+    node.isDraft || node.title.startsWith("[release candidate]") ? [] : [node]
+  );
+
+  const initialGroups = {
+    ready: [],
+    partial: [],
+    deleting: [],
+    small: [],
+    remaining: [],
+    stale: [],
+  };
+
+  const groups = pullRequests.reduce((acc, val) => {
+    let group;
+    let additions = 0;
+    let deletions = 0;
+
+    for (const file of val.files.edges) {
+      additions += file.node.additions;
+      deletions += file.node.deletions;
+    }
+
+    if (getDays(val.updatedAt) > 7 * 3) {
+      group = "stale";
+    } else if (val.reviewDecision === "APPROVED") {
+      group = "ready";
+    } else if (
+      val.reviews.edges.some((edge) => edge.node.state === "APPROVED")
+    ) {
+      group = "partial";
+    } else if (additions < 120 && deletions < 120) {
+      group = "small";
+    } else if (deletions - additions > 50) {
+      group = "deleting";
+    } else {
+      group = "remaining";
+    }
+
+    acc[group].push({
+      name: val.title,
+      url: val.permalink,
+      daysOpen: getDays(val.publishedAt),
+    });
+    return acc;
+  }, initialGroups);
+
+  const totalNum = Object.values(groups).reduce(
+    (acc, val) => acc + val.length,
+    0,
+  );
+
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = `
+<p><strong>Pull Request Summary for <code>${owner}/${repo}</code> (${totalNum} open)</strong></p>
+`;
+
+  wrapper.innerHTML += formatPRList("Ready to Merge", groups.ready);
+  wrapper.innerHTML += formatPRList("Partially Approved", groups.partial);
+  wrapper.innerHTML += formatPRList("Deleting Code", groups.deleting);
+  wrapper.innerHTML += formatPRList("Small Changes", groups.small);
+  wrapper.innerHTML += formatPRList("Remaining", groups.remaining);
+  wrapper.innerHTML += formatPRList("Stale", groups.stale);
+
+  copyToClipboard(wrapper);
+  output.innerHTML += "<p>Summary was copied to clipboard.</p>";
+}

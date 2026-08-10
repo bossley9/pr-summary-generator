@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+	<head>
+		<meta charset="utf-8">
+		<title>Pull Request Summary Generator</title>
+		<style>
+			form {
+				display: inline-grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 0.5rem;
+			}
+			button {
+				grid-column: 1/3;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Pull Request Summary Generator</h1>
+		<form>
+			<label for="token">Github Token</label>
+			<input id="token" name="token" required type="password" placeholder="GITHUB_TOKEN">
+			<label for="owner">Owner</label>
+			<input id="owner" name="owner" required placeholder="my-username">
+			<label for="repo">Repository</label>
+			<input id="repo" name="repo" required placeholder="my-repository">
+			<button>Generate</button>
+		</form>
+		<pre id="output"></pre>
+		<script src="./main.js"></script>
+	</body>
+</html>
