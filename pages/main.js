@@ -33,6 +33,7 @@ ${
 async function onSubmit(e) {
   e.preventDefault();
   output.innerHTML = "";
+  document.getElementById("preview")?.remove();
   const formData = new FormData(e.target, e.submitter);
 
   const GITHUB_TOKEN = formData.get("token");
@@ -149,18 +150,22 @@ query {
     0,
   );
 
-  const wrapper = document.createElement("div");
-  wrapper.innerHTML = `
+  const preview = document.createElement("div");
+  preview.id = "preview";
+  preview.innerHTML = `
 <p><strong>Pull Request Summary for <code>${owner}/${repo}</code> (${totalNum} open)</strong></p>
 `;
 
-  wrapper.innerHTML += formatPRList("Ready to Merge", groups.ready);
-  wrapper.innerHTML += formatPRList("Partially Approved", groups.partial);
-  wrapper.innerHTML += formatPRList("Deleting Code", groups.deleting);
-  wrapper.innerHTML += formatPRList("Small Changes", groups.small);
-  wrapper.innerHTML += formatPRList("Remaining", groups.remaining);
-  wrapper.innerHTML += formatPRList("Stale", groups.stale);
+  preview.innerHTML += formatPRList("Ready to Merge", groups.ready);
+  preview.innerHTML += formatPRList("Partially Approved", groups.partial);
+  preview.innerHTML += formatPRList("Deleting Code", groups.deleting);
+  preview.innerHTML += formatPRList("Small Changes", groups.small);
+  preview.innerHTML += formatPRList("Remaining", groups.remaining);
+  preview.innerHTML += formatPRList("Stale", groups.stale);
 
-  copyToClipboard(wrapper);
-  output.innerHTML += "<p>Summary was copied to clipboard.</p>";
+  copyToClipboard(preview);
+  output.innerHTML +=
+    "<p>Summary was copied to clipboard. Below is an output preview.</p>";
+
+  document.body.append(preview);
 }
