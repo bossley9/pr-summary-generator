@@ -1,5 +1,6 @@
+const logger = document.getElementById("logger");
+const copy = document.getElementById("copy");
 const output = document.getElementById("output");
-document.querySelector("form").addEventListener("submit", onSubmit);
 
 function getDays(dateStr) {
   const date = new Date(dateStr);
@@ -7,13 +8,14 @@ function getDays(dateStr) {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
-function copyToClipboard(el) {
+function copyOutputToClipboard() {
   const clipboardItem = new ClipboardItem({
-    "text/plain": new Blob([el.textContent], { type: "text/plain" }),
-    "text/html": new Blob([el.innerHTML], { type: "text/html" }),
+    "text/plain": new Blob([output.textContent], { type: "text/plain" }),
+    "text/html": new Blob([output.innerHTML], { type: "text/html" }),
   });
   navigator.clipboard.write([clipboardItem]);
 }
+copy.addEventListener("click", copyOutputToClipboard);
 
 function formatPRList(name, list) {
   if (list.length === 0) return "";
@@ -32,42 +34,51 @@ ${
 
 async function onSubmit(e) {
   e.preventDefault();
+  logger.innerHTML = "";
+  copy.style.display = "none";
   output.innerHTML = "";
-  document.getElementById("preview")?.remove();
   const formData = new FormData(e.target, e.submitter);
 
   const GITHUB_TOKEN = formData.get("token");
-  const owner = formData.get("owner");
-  const repo = formData.get("repo");
+  const repos = formData.get("repos").split("\n").filter((r) =>
+    r.includes("/")
+  );
 
+  const repoQuery = repos.map((r) => "repo:" + r).join(" ");
+
+  // https://docs.github.com/en/graphql/reference/search
   // https://docs.github.com/en/graphql/reference/repos#object-repository
   const query = `
 query {
-  repository(owner: "${owner}", name: "${repo}") {
-    pullRequests(first: 100, states:OPEN) {
-      edges {
-        node {
-          files(first:40) {
-            edges {
-              node {
-                additions
-                deletions
+  search(type: REPOSITORY, query: "${repoQuery}", first: 5) {
+    nodes {
+      ... on Repository {
+        pullRequests(first: 100, states:OPEN) {
+          edges {
+            node {
+              files(first:40) {
+                edges {
+                  node {
+                    additions
+                    deletions
+                  }
+                }
               }
+              isDraft
+              permalink
+              publishedAt
+              reviewDecision
+              reviews(first:5) {
+                edges {
+                  node {
+                    state
+                  }
+                }
+              }
+              title
+              updatedAt
             }
           }
-          isDraft
-          permalink
-          publishedAt
-          reviewDecision
-          reviews(first:5) {
-            edges {
-              node {
-                state
-              }
-            }
-          }
-          title
-          updatedAt
         }
       }
     }
@@ -75,7 +86,7 @@ query {
 }
 `;
 
-  output.innerHTML += "<p>Fetching pull requests from Github...</p>";
+  logger.innerHTML += "<p>Fetching pull requests from Github...</p>";
   const res = await fetch("https://api.github.com/graphql", {
     method: "post",
     headers: { Authorization: `Bearer ${GITHUB_TOKEN}` },
@@ -83,24 +94,23 @@ query {
   });
   const body = await res.json();
 
-  if (!res.ok) {
-    output.innerHTML += `<p style="color:red">${JSON.stringify(body)}</p>`;
-    return;
-  }
-
-  if (body.errors) {
-    output.innerHTML += `<p style="color:red">${
-      JSON.stringify(body.errors)
+  if (!res.ok || body.errors) {
+    logger.innerHTML += `<p style="color:red">${
+      JSON.stringify(body, null, 2)
     }</p>`;
     return;
   }
 
-  output.innerHTML += "<p>Formatting response...</p>";
-  const pullRequests = body.data.repository.pullRequests.edges.flatMap((
-    { node },
-  ) =>
-    node.isDraft || node.title.startsWith("[release candidate]") ? [] : [node]
-  );
+  logger.innerHTML += "<p>Formatting response...</p>";
+  const pullRequests = [];
+  for (const repo of body.data.search.nodes) {
+    for ({ node } of repo.pullRequests.edges) {
+      if (node.isDraft || node.title.startsWith("[release candidate]")) {
+        continue;
+      }
+      pullRequests.push(node);
+    }
+  }
 
   const initialGroups = {
     ready: [],
@@ -150,24 +160,23 @@ query {
     0,
   );
 
-  const preview = document.createElement("div");
-  preview.id = "preview";
-  preview.innerHTML = `
-<p><strong>Pull Request Summary for <code>${owner}/${repo}</code> (${totalNum} open)</strong></p>
+  output.innerHTML = `
+<p><strong>Pull Request Summary for ${
+    repos.map((r) => `<code>${r}</code>`).join(",")
+  } (${totalNum} open)</strong></p>
 `;
 
-  preview.innerHTML += formatPRList("Ready to Merge", groups.ready);
-  preview.innerHTML += formatPRList("Partially Approved", groups.partial);
-  preview.innerHTML += formatPRList("Deleting Code", groups.deleting);
-  preview.innerHTML += formatPRList("Small Changes", groups.small);
-  preview.innerHTML += formatPRList("Remaining", groups.remaining);
-  preview.innerHTML += formatPRList("Stale", groups.stale);
-  preview.innerHTML +=
+  output.innerHTML += formatPRList("Ready to Merge", groups.ready);
+  output.innerHTML += formatPRList("Partially Approved", groups.partial);
+  output.innerHTML += formatPRList("Deleting Code", groups.deleting);
+  output.innerHTML += formatPRList("Small Changes", groups.small);
+  output.innerHTML += formatPRList("Remaining", groups.remaining);
+  output.innerHTML += formatPRList("Stale", groups.stale);
+  output.innerHTML +=
     `<br><blockquote><em>This summary was <a href="https://github.com/bossley9/pr-summary-generator">generated by a human</a>. Check for mistakes.</em></blockquote>`;
 
-  copyToClipboard(preview);
-  output.innerHTML +=
-    "<p>Summary was copied to clipboard. Below is an output preview.</p>";
+  logger.innerHTML += "<p>Below is an output preview.</p>";
 
-  document.body.append(preview);
+  copy.style.display = "block";
 }
+document.querySelector("form").addEventListener("submit", onSubmit);
