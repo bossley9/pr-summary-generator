@@ -139,10 +139,10 @@ query {
       val.reviews.edges.some((edge) => edge.node.state === "APPROVED")
     ) {
       group = "partial";
-    } else if (additions < 120 && deletions < 120) {
-      group = "small";
     } else if (deletions - additions > 50) {
       group = "deleting";
+    } else if (additions < 100 && deletions < 200) {
+      group = "small";
     } else {
       group = "remaining";
     }
