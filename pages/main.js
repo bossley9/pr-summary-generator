@@ -66,6 +66,13 @@ query {
                   }
                 }
               }
+              labels(first: 10) {
+                edges {
+                  node {
+                    name
+                  }
+                }
+              }
               isDraft
               permalink
               publishedAt
@@ -116,6 +123,7 @@ query {
 
   const initialGroups = {
     ready: [],
+    urgent: [],
     partial: [],
     deleting: [],
     small: [],
@@ -137,6 +145,8 @@ query {
       group = "stale";
     } else if (val.reviewDecision === "APPROVED") {
       group = "ready";
+    } else if (val.labels.edges.some(({ node }) => node.name === "Urgent")) {
+      group = "urgent";
     } else if (
       val.reviews.edges.some((edge) => edge.node.state === "APPROVED")
     ) {
@@ -168,7 +178,12 @@ query {
   } (${totalNum} open)</strong></p>
 `;
 
-  output.innerHTML += formatPRList("Ready to Merge", groups.ready);
+  output.innerHTML += formatPRList(
+    "Ready to Merge",
+    groups.ready,
+    "what are we waiting for?",
+  );
+  output.innerHTML += formatPRList("Urgent!", groups.urgent);
   output.innerHTML += formatPRList("Partially Approved", groups.partial);
   output.innerHTML += formatPRList("Deleting Code", groups.deleting);
   output.innerHTML += formatPRList("Small Changes", groups.small);
