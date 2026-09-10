@@ -128,6 +128,7 @@ query {
     deleting: [],
     small: [],
     remaining: [],
+    external: [],
     stale: [],
   };
 
@@ -145,8 +146,16 @@ query {
       group = "stale";
     } else if (val.reviewDecision === "APPROVED") {
       group = "ready";
-    } else if (val.labels.edges.some(({ node }) => node.name === "Urgent")) {
+    } else if (
+      val.labels.edges.some(({ node }) => node.name.toLowerCase() === "urgent")
+    ) {
       group = "urgent";
+    } else if (
+      val.labels.edges.some(({ node }) =>
+        node.name.toLowerCase() === "external"
+      )
+    ) {
+      group = "external";
     } else if (
       val.reviews.edges.some((edge) => edge.node.state === "APPROVED")
     ) {
@@ -188,6 +197,7 @@ query {
   output.innerHTML += formatPRList("Deleting Code", groups.deleting);
   output.innerHTML += formatPRList("Small Changes", groups.small);
   output.innerHTML += formatPRList("Remaining", groups.remaining);
+  output.innerHTML += formatPRList("External", groups.external);
   output.innerHTML += formatPRList(
     "Old or Stale",
     groups.stale,
