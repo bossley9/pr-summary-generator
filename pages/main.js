@@ -28,7 +28,7 @@ function formatPRList(name, list, note = "") {
 <ul>
 ${
     list.map((pr) =>
-      `<li><a href="${pr.url}">${pr.name}</a> · ${pr.daysOpen}d</li>`
+      `<li><a href="${pr.url}">${pr.name}</a> · ${pr.daysOpen}d · <code>+${pr.additions},-${pr.deletions}</code></li>`
     ).join("")
   }
 </ul>
@@ -58,14 +58,8 @@ query {
         pullRequests(first: 100, states:OPEN) {
           edges {
             node {
-              files(first:40) {
-                edges {
-                  node {
-                    additions
-                    deletions
-                  }
-                }
-              }
+              additions
+              deletions
               labels(first: 10) {
                 edges {
                   node {
@@ -134,13 +128,8 @@ query {
 
   const groups = pullRequests.reduce((acc, val) => {
     let group;
-    let additions = 0;
-    let deletions = 0;
-
-    for (const file of val.files.edges) {
-      additions += file.node.additions;
-      deletions += file.node.deletions;
-    }
+    const additions = val.additions;
+    const deletions = val.deletions;
 
     if (getDays(val.updatedAt) > 7 * 3 || getDays(val.publishedAt) > 7 * 4) {
       group = "stale";
@@ -172,6 +161,8 @@ query {
       name: val.title,
       url: val.permalink,
       daysOpen: getDays(val.publishedAt),
+      additions: val.additions,
+      deletions: val.deletions,
     });
     return acc;
   }, initialGroups);
