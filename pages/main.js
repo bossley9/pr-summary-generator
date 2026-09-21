@@ -50,6 +50,7 @@ async function onSubmit(e) {
 
   // https://docs.github.com/en/graphql/reference/search
   // https://docs.github.com/en/graphql/reference/repos#object-repository
+  // https://docs.github.com/en/graphql/reference/pulls#object-pullrequest
   const query = `
 query {
   search(type: REPOSITORY, query: "${repoQuery}", first: 5) {
@@ -77,6 +78,9 @@ query {
                     state
                   }
                 }
+              }
+              stackEntry {
+                position
               }
               title
               updatedAt
@@ -108,7 +112,11 @@ query {
   const pullRequests = [];
   for (const repo of body.data.search.nodes) {
     for ({ node } of repo.pullRequests.edges) {
-      if (node.isDraft || node.title.startsWith("[release candidate]")) {
+      if (
+        node.isDraft ||
+        node.title.startsWith("[release candidate]") ||
+        Number(node.stackEntry?.position || 1) > 1
+      ) {
         continue;
       }
       pullRequests.push(node);
