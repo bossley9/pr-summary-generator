@@ -192,9 +192,9 @@ query {
     "what are we waiting for?",
   );
   output.innerHTML += formatPRList("Urgent!", groups.urgent);
-  output.innerHTML += formatPRList("Partially Approved", groups.partial);
-  output.innerHTML += formatPRList("Deleting Code", groups.deleting);
   output.innerHTML += formatPRList("Small Changes", groups.small);
+  output.innerHTML += formatPRList("Deleting Code", groups.deleting);
+  output.innerHTML += formatPRList("Partially Approved", groups.partial);
   output.innerHTML += formatPRList("Remaining", groups.remaining);
   output.innerHTML += formatPRList("External", groups.external);
   output.innerHTML += formatPRList(
