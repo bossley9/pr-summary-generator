@@ -139,7 +139,7 @@ query {
     const additions = val.additions;
     const deletions = val.deletions;
 
-    if (getDays(val.updatedAt) > 7 * 3 || getDays(val.publishedAt) > 7 * 4) {
+    if (getDays(val.updatedAt) > 7 * 3) {
       group = "stale";
     } else if (val.reviewDecision === "APPROVED") {
       group = "ready";
@@ -198,7 +198,7 @@ query {
   output.innerHTML += formatPRList("Remaining", groups.remaining);
   output.innerHTML += formatPRList("External", groups.external);
   output.innerHTML += formatPRList(
-    "Old or Stale",
+    "Stale",
     groups.stale,
     "please close these if they are no longer relevant",
   );
