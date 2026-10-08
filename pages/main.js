@@ -56,12 +56,12 @@ query {
   search(type: REPOSITORY, query: "${repoQuery}", first: 5) {
     nodes {
       ... on Repository {
-        pullRequests(first: 100, states:OPEN) {
+        pullRequests(first:100, states:OPEN) {
           edges {
             node {
               additions
               deletions
-              labels(first: 10) {
+              labels(first:10) {
                 edges {
                   node {
                     name
@@ -78,9 +78,6 @@ query {
                     state
                   }
                 }
-              }
-              stackEntry {
-                position
               }
               title
               updatedAt
@@ -114,8 +111,7 @@ query {
     for ({ node } of repo.pullRequests.edges) {
       if (
         node.isDraft ||
-        node.title.startsWith("[release candidate]") ||
-        Number(node.stackEntry?.position || 1) > 1
+        node.title.startsWith("[release candidate]")
       ) {
         continue;
       }
